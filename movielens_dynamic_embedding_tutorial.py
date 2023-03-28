@@ -283,33 +283,13 @@ Defining user tower and iterm tower with dynamic embeddings
 # %%
 tf.compat.v1.reset_default_graph()
 
-class UniqueEmbedding(de.keras.layers.BasicEmbedding):
-  """
-  The UniqueEmbedding layer has the same input and output with BasicEmbedding,
-  but it will do a unique operator before embedding_lookup.
-  ```
-  """
-
-  def call(self, ids):
-    with tf.name_scope(self.name + "/EmbeddingLookupUnique"):
-      ids = tf.convert_to_tensor(ids)
-      shape = tf.shape(ids)
-      ids_flat = tf.reshape(ids, tf.reduce_prod(shape, keepdims=True))
-      unique_ids, idx = tf.unique(ids_flat)
-      unique_embeddings = de.shadow_ops.embedding_lookup(
-          self.shadow, unique_ids)
-      embeddings_flat = tf.gather(unique_embeddings, idx)
-      embeddings_shape = tf.concat([tf.shape(ids), [self.embedding_size]], 0)
-      embeddings = tf.reshape(embeddings_flat, embeddings_shape)
-      return embeddings
-
 def build_de_user_model(user_id_lookup_layer: tf.keras.layers.StringLookup) -> tf.keras.layers.Layer:
     vocab_size = user_id_lookup_layer.vocabulary_size()
     return tf.keras.Sequential([
         # Fix from https://github.com/keras-team/keras/issues/16101
         tf.keras.layers.InputLayer(input_shape=(), dtype=tf.string),
         user_id_lookup_layer, 
-        UniqueEmbedding(
+        de.keras.layers.Embedding(
             embedding_size=64,
             initializer=tf.random_uniform_initializer(),
             init_capacity=vocab_size*2.0,
@@ -328,7 +308,7 @@ def build_de_item_model(movie_title_lookup_layer: tf.keras.layers.StringLookup) 
     return tf.keras.models.Sequential([
         tf.keras.layers.InputLayer(input_shape=(max_token_length), dtype=tf.string),
         movie_title_lookup_layer, 
-        UniqueEmbedding(
+        de.keras.layers.Embedding(
             embedding_size=64,
             initializer=tf.random_uniform_initializer(),
             init_capacity=vocab_size*2.0,
